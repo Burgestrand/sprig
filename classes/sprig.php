@@ -96,7 +96,7 @@ abstract class Sprig {
 	 *
 	 * @return  void
 	 */
-	final protected function __construct()
+	protected function __construct()
 	{
 		if ($this->_init)
 		{
@@ -226,6 +226,12 @@ abstract class Sprig {
 				$field->label = Inflector::humanize($name);
 			}
 
+			if ($field->null)
+			{
+				// Fields that allow NULL values must accept empty values
+				$field->empty = TRUE;
+			}
+
 			if ($field->editable)
 			{
 				if ( ! $field->empty AND ! isset($field->rules['not_empty']))
@@ -270,7 +276,7 @@ abstract class Sprig {
 	 *
 	 * @return  string
 	 */
-	final public function __toString()
+	public function __toString()
 	{
 		return $this->_model;
 	}
@@ -797,7 +803,7 @@ abstract class Sprig {
 			{
 				if ($labels === TRUE)
 				{
-					$key = form::label($name, $field->label);
+					$key = $field->label($name);
 				}
 				else
 				{
@@ -815,11 +821,12 @@ abstract class Sprig {
 	 * Return a single field label.
 	 *
 	 * @param   string  field name
+	 * @param   array   label attributes
 	 * @return  string
 	 */
-	public function label($field)
+	public function label($field, array $attr = NULL)
 	{
-		return $this->_fields[$field]->label;
+		return $this->_fields[$field]->label($field, $attr);
 	}
 
 	/**
@@ -831,6 +838,42 @@ abstract class Sprig {
 	public function verbose($field)
 	{
 		return $this->_fields[$field]->verbose($this->$field);
+	}
+
+	/**
+	 * Count the number of records using the current data.
+	 *
+	 * @param   object   any Database_Query_Builder_Select, NULL for none
+	 * @return  $this
+	 */
+	public function count(Database_Query_Builder_Select $query = NULL)
+	{
+		if ( ! $query)
+		{
+			$query = DB::select();
+		}
+
+		$table = is_array($this->_table) ? $this->_table[1] : $this->_table;
+
+		if ($changed = $this->changed())
+		{
+			foreach ($changed as $field => $value)
+			{
+				$field = $this->_fields[$field];
+
+				if ( ! $field->in_db)
+				{
+					continue;
+				}
+
+				$query->where("{$table}.{$field->column}", '=', $value);
+			}
+		}
+
+		return $query->select(array('COUNT("*")', 'total'))
+			->from($this->_table)
+			->execute($this->_db)
+			->get('total');
 	}
 
 	/**
@@ -858,6 +901,8 @@ abstract class Sprig {
 
 		$query->from($this->_table);
 
+		$table = is_array($this->_table) ? $this->_table[1] : $this->_table;
+
 		foreach ($this->_fields as $name => $field)
 		{
 			if ( ! $field->in_db)
@@ -868,16 +913,16 @@ abstract class Sprig {
 
 			if ($name === $field->column)
 			{
-				$query->select($name);
+				$query->select("{$table}.{$name}");
 			}
 			else
 			{
-				$query->select(array($field->column, $name));
+				$query->select(array("{$table}.{$field->column}", $name));
 			}
 
 			if (array_key_exists($name, $changed))
 			{
-				$query->where($field->column, '=', $changed[$name]);
+				$query->where("{$table}.{$field->column}", '=', $changed[$name]);
 			}
 		}
 
@@ -961,7 +1006,7 @@ abstract class Sprig {
 
 			if ($field instanceof Sprig_Field_Auto OR ! $field->in_db )
 			{
-				if ($field instanceof Sprig_Field_HasMany)
+				if ($field instanceof Sprig_Field_ManyToMany)
 				{
 					$relations[$name] = $value;
 				}
@@ -1136,13 +1181,22 @@ abstract class Sprig {
 	 * - If the record is not loaded, it will be deleted using all changed fields.
 	 * - If no data has been changed, the delete will be ignored.
 	 *
+	 * @param   object   any Database_Query_Builder_Delete, NULL for none
 	 * @return  $this
 	 */
-	public function delete()
+	public function delete(Database_Query_Builder_Delete $query = NULL)
 	{
+		if ($query)
+		{
+			$query->table($this->_table);
+		}
+
 		if ($this->loaded())
 		{
-			$query = DB::delete($this->_table);
+			if ( ! $query)
+			{
+				$query = DB::delete($this->_table);
+			}
 
 			if (is_array($this->_primary_key))
 			{
@@ -1158,7 +1212,10 @@ abstract class Sprig {
 		}
 		elseif ($changed = $this->changed())
 		{
-			$query = DB::delete($this->_table);
+			if ( ! $query)
+			{
+				$query = DB::delete($this->_table);
+			}
 
 			foreach ($changed as $field => $value)
 			{

@@ -63,7 +63,7 @@ abstract class Sprig_Field {
 
 	public function verbose($value)
 	{
-		return (string) $value;
+		return (string) $this->value($value);
 	}
 
 	public function input($name, $value, array $attr = NULL)
@@ -83,7 +83,7 @@ abstract class Sprig_Field {
 
 	public function label($name, array $attr = NULL)
 	{
-		return Form::label($name, $this->label, $attr);
+		return Form::label($name, UTF8::ucwords($this->label), $attr);
 	}
 
 } // End Sprig_Field
