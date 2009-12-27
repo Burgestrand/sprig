@@ -36,15 +36,6 @@ class Sprig_Field_HasMany extends Sprig_Field_ForeignKey {
 
 		if ($value)
 		{
-			// Convert objects in array to IDs 
-			foreach ($value as $k => $item)
-			{
-				if (is_object($item))
-				{
-					$value[$k] = $item->{$item->pk()};
-				}
-			}
-			
 			// Combine the value to make a mirrored array
 			$value = array_combine($value, $value);
 

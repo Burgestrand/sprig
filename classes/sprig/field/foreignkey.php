@@ -14,8 +14,6 @@ abstract class Sprig_Field_ForeignKey extends Sprig_Field_Char {
 	public $in_db = FALSE;
 
 	public $model;
-	
-	public $foreign_field;
 
 	public function value($value)
 	{
