@@ -205,19 +205,31 @@ abstract class Sprig {
 
 				if ($field instanceof Sprig_Field_BelongsTo)
 				{
+					// Use model's default foreign key
 					$field->column = Sprig::factory($field->model)->fk();
-				}
-				elseif ($field instanceof Sprig_Field_HasOne)
-				{
-					$field->column = $this->fk();
 				}
 				elseif ($field instanceof Sprig_Field_ForeignKey)
 				{
-					// This field is probably a Many and does not need a column
+					// HasOne and HasMany use this models default foreign key
+					$field->column = $this->fk();
 				}
 				else
 				{
 					$field->column = $name;
+				}
+			}
+			
+			if (($field instanceof Sprig_Field_ForeignKey AND ! $field instanceof Sprig_Field_BelongsTo)
+					AND ! $field->foreign_field)
+			{
+				// Make a guess at which field is the foriegn counterpart to this one
+				if ($field instanceof Sprig_Field_ManyToMany)
+				{
+					$field->foreign_field = Inflector::plural($this->_model);
+				}
+				else
+				{
+					$field->foreign_field = $this->_model;
 				}
 			}
 
@@ -348,8 +360,8 @@ abstract class Sprig {
 						{
 							$query = DB::select()
 								->join($field->through)
-									->on($model->fk($field->through), '=', $model->pk(TRUE))
-								->where($this->fk($field->through), '=', $this->{$this->_primary_key});
+									->on($model->fk($field->through, $field->foreign_field), '=', $model->pk(TRUE))
+								->where($this->fk($field->through, $name), '=', $this->{$this->_primary_key});
 						}
 					}
 					else
@@ -357,12 +369,12 @@ abstract class Sprig {
 						if (isset($value))
 						{
 							$query = DB::select()
-								->where($model->pk(), '=', $value);
+								->where($model->pk(), 'IN', $value);
 						}
 						else
 						{
 							$query = DB::select()
-								->where($this->fk(), '=', $this->{$this->_primary_key});
+								->where($model->fk(NULL, $field->foreign_field), '=', $this->{$this->_primary_key});
 						}
 					}
 
@@ -377,7 +389,17 @@ abstract class Sprig {
 				}
 				elseif ($field instanceof Sprig_Field_BelongsTo)
 				{
-					$related = $model->values(array($model->pk() => $value));
+					if ( ! is_null($value))
+					{
+						// NULL id values should not create a poorly defined related object
+						// otherwise unexpected result will come back when related model is retrieved and loaded
+						$related = NULL;
+					}
+					else
+					{
+						$related = $model->values(array($model->pk() => $value));
+					}
+					
 				}
 				elseif ($field instanceof Sprig_Field_HasOne)
 				{
@@ -455,7 +477,7 @@ abstract class Sprig {
 			}
 
 			// Create a database result containing the related objects
-			$this->_related[$name] = new Database_Result_Cached($value, '', $model);
+			$this->_related[$name] = new Database_Result_Cached($value, '', Sprig::factory($field->model));
 			
 			// Set the changed value to TRUE since we may have new objects wihout IDs
 			$this->_changed[$name] = TRUE;
@@ -569,11 +591,19 @@ abstract class Sprig {
 	 * Returns the foreign key of the model, optionally with a table name.
 	 *
 	 * @param   string  table name, TRUE for the model table
+	 * @param   string  ManyToMany or BelongsTo field name in question
 	 * @return  string
 	 */
-	public function fk($table = NULL)
+	public function fk($table = NULL, $field = NULL)
 	{
-		$key = $this->_model.'_'.$this->_primary_key;
+		if ($field === NULL)
+		{
+			$key = $this->_model.'_'.$this->_primary_key;
+		}
+		else
+		{
+			$key = $this->_fields[$field]->column;
+		}
 
 		if ($table)
 		{
@@ -1112,7 +1142,7 @@ abstract class Sprig {
 				->execute($this->_db);
 
 			if (count($result))
-			{
+			{				
 				$this->values($result[0])->state('loaded');
 			}
 
@@ -1281,31 +1311,14 @@ abstract class Sprig {
 			
 			$field = $this->_fields[$name];
 			
-			$model = Sprig::factory($field->model);			
+			$model = Sprig::factory($field->model);
 			
 			foreach ($this->_related[$name] as $k => $related)
 			{	
 				if ( ! $field instanceof Sprig_Field_ManyToMany)
 				{
-					// Find out which object property corresponds with the related foreign key
-					foreach($model->fields() as $foreign_name => $foreign_field)
-					{
-						if ($this->fk() === $foreign_field->column)
-						{
-							// Found it
-							$property = $foreign_name;
-							break;
-						}
-					}
-					
-					if ( ! isset($property))
-					{
-						throw new Sprig_Exception('Sprig::add() requires completely standard foreign key names, could not find :key in :model',
-								array(':key' => $this->fk(), ':model' => get_class($model)));
-					}
-					
 					// This is a HasMany so update model's foreign key
-					$this->_related[$name][$k]->{$property} = $this->{$this->_primary_key};
+					$this->_related[$name][$k]->{$field->foreign_field} = $this->{$this->_primary_key};
 				}
 						
 				if ($this->_related[$name][$k]->loaded())
@@ -1330,8 +1343,8 @@ abstract class Sprig {
 				if ($old = array_diff($this->_original[$name], $value))
 				{
 					DB::delete($field->through)
-						->where($this->fk(), '=', $this->{$this->_primary_key})
-						->where($model->fk(), 'IN', $old)
+						->where($this->fk(NULL, $name), '=', $this->{$this->_primary_key})
+						->where($model->fk(NULL, $field->foreign_field), 'IN', $old)
 						->execute($this->_db);
 				}
 
@@ -1340,7 +1353,7 @@ abstract class Sprig {
 				{
 					foreach ($new as $id)
 					{
-						DB::insert($field->through, array($this->fk(), $model->fk()))
+						DB::insert($field->through, array($this->fk(NULL, $name), $model->fk(NULL, $field->foreign_field)))
 							->values(array($this->{$this->_primary_key}, $id))
 							->execute($this->_db);
 					}
@@ -1353,7 +1366,7 @@ abstract class Sprig {
 				{					
 					// Old relationships have their foreign keys set to NULL
 					DB::update($model->table())
-						->set(array($this->fk() => NULL))
+						->set(array($model->fk(NULL, $field->foreign_field) => NULL))
 						->where($model->pk(), 'IN', $old)
 						->execute($this->_db);
 				}
