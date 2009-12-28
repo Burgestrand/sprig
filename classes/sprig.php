@@ -455,7 +455,7 @@ abstract class Sprig {
 			}
 
 			// Create a database result containing the related objects
-			$this->_related[$name] = new Database_Result_Cached($value, '', $model);
+			$this->_related[$name] = new Database_Result_Cached($value, '', Sprig::factory($field->model));
 			
 			// Set the changed value to TRUE since we may have new objects wihout IDs
 			$this->_changed[$name] = TRUE;
