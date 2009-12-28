@@ -276,17 +276,25 @@ A reference to another model by the parent model primary key value. Does not pro
 
 Has the `model` property, the name of another Sprig model.
 
+Has the `foreign_field` property, this specifies the field name of the corresponding BelongsTo field in the related model. 
+This allows the relationship to work both ways with non-standard or aliased foreign keys.
+
 #### Sprig_Field_BelongsTo
 
 A reference to another model by the child model primary key value. Represented by a select input.
 
 Has the `model` property, the name of another Sprig model.
 
+The `column` property can be used to specify a non-standard foreign_key.
+
 #### Sprig_Field_HasMany
 
 A reference to many other models by this model primary key value. Does not produce a form input.
 
 Has the `model` property, the name of another Sprig model.
+
+Has the `foreign_field` property, this specifies the field name of the corresponding BelongsTo field in the related model. 
+This allows the relationship to work both ways with non-standard or aliased foreign keys.
 
 #### Sprig_Field_ManyToMany
 
@@ -296,3 +304,5 @@ Has the `model` property, the name of another Sprig model.
 
 Has the `through` property, the name of the pivot table. By default, uses both model names, sorted alphabetically and combined with an underscore. For example: a many-to-many relationship between `Model_Post` and `Model_Tag` would default to `post_tag` as the table name.
 
+Has the `foreign_field` property, this specifies the field name of the corresponding ManyToMany field in the related model. 
+This allows the relationship to work both ways with non-standard or aliased foreign keys.
