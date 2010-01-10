@@ -1309,6 +1309,13 @@ abstract class Sprig {
 			
 			$field = $this->_fields[$name];
 			
+			if ($field instanceof Sprig_Field_BelongsTo)
+			{
+				// If the relationship is a BelongsTo, the foreign_key is in this Model
+				// and will be updated anyway so we can skip it here- thanks Cyril
+				continue;
+			}
+			
 			$model = Sprig::factory($field->model);
 			
 			foreach ($this->_related[$name] as $k => $related)
