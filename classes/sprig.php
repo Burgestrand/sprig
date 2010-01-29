@@ -380,7 +380,7 @@ abstract class Sprig {
 				}
 				elseif ($field instanceof Sprig_Field_BelongsTo)
 				{
-					if ( ! is_null($value))
+					if (is_null($value))
 					{
 						// NULL id values should not create a poorly defined related object
 						// otherwise unexpected result will come back when related model is retrieved and loaded
