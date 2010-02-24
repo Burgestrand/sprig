@@ -2,6 +2,7 @@
     /**
      * An IP-address sprig Field, stored in a 16-byte (unsigned) binary field
      *
+     * @package     Sprig
      * @author      Kim Burgestrand
      * @license     X11 License (“MIT”)
      */
