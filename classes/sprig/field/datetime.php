@@ -8,7 +8,6 @@
      */
     class Sprig_Field_Datetime extends Sprig_Field
     {
-        public $format = 'Y-m-d H:i:s';
         public $default = NULL;
         
         /**
@@ -19,14 +18,21 @@
          */
         public function value($value)
         {
+            $format = 'Y-m-d H:i:s';
             $value = parent::value($value);
             
             if (is_null($value))
             {
-                return gmdate('Y-m-d H:i:s');
+                return gmdate($format);
             }
-            
-            return date($this->format, strtotime($value . ' +0000'));
+            elseif (is_int($value))
+            {
+                return gmdate($format, $value);
+            }
+            else
+            {
+                return date($format, strtotime($value . ' +0000'));
+            }
         }
     }
     
