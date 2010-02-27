@@ -82,7 +82,7 @@ class Sprig_Field_HasMany extends Sprig_Field_ForeignKey {
 		// Hidden input is added to force $_POST to contain a value for
 		// this field, even when nothing is selected.
 
-		return Form::hidden($name, '').implode('<br/>', $inputs);
+		return Form::hidden($name, '').'<ul><li>'.implode('</li><li>', $inputs).'</li></ul>';
 	}
 
 } // End Sprig_Field_ManyToMany
